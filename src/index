@@ -1,0 +1,77 @@
+/*
+ * @Author: apathyjade <apathyjade@outlook.com>
+ * @Version: 0.0.1
+ * @Date: 2019-12-03 15:10:39
+ * @Last Modified by:   apathyjade
+ * @Last Modified Time: 2019-12-03 15:10:39
+ */
+
+// 获取UA方法
+export const getUserAgent = () => {
+  if (typeof window === 'undefined' || !window.navigator || !window.navigator.userAgent) {
+    return ''
+  }
+  return window.navigator.userAgent
+}
+
+// 判断 手机端 微信app
+export const isWxMApp = () => {
+  const ua = getUserAgent()
+  return ua.match(/MicroMessenger/i) && !ua.includes('wxwork')
+}
+
+// wxBride 工厂方法
+export const wxBridge = cb => data => {
+  const onBridgeReady = () => {
+    return cb(data)
+  }
+  if (typeof window.WeixinJSBridge === 'undefined') {
+    if (document.addEventListener) {
+      document.addEventListener('WeixinJSBridgeReady', onBridgeReady, false)
+    } else if (document.attachEvent) {
+      document.attachEvent('WeixinJSBridgeReady', onBridgeReady)
+      document.attachEvent('onWeixinJSBridgeReady', onBridgeReady)
+    }
+  } else {
+    onBridgeReady()
+  }
+}
+
+// 判断是否为微信小程序 webview
+export const isWxMpWebView = () => {
+  if (!isWxMApp) return Promise.resolve(false)
+  // 不是微信app 或者 不是小程序webview（ >7.0.0）， 不支持wx jssdk
+  if (
+    !isWxMApp() || !getUserAgent().match(/miniProgram/i)
+  ) {
+    return Promise.resolve(false)
+  }
+  return new Promise((resolve, reject) => {
+    // 判断 微信小程序
+    const isMP = () => window.__wxjs_environment === 'miniprogram'
+    if (!window.WeixinJSBridge || !window.WeixinJSBridge.invoke) {
+      document.addEventListener('WeixinJSBridgeReady', () => {
+        resolve(!isMP())
+      }, false)
+    } else {
+      resolve(!isMP())
+    }
+  })
+}
+// 判断是否支持 微信支付 (小程序)
+export const isSuportWXMPPay = () => !!(typeof wx !== 'undefined' && typeof wx.requestPayment === 'function')
+
+// 判断是否支持 微信JSSDK支付
+export const isSuportWXJSPay = () => {
+  /*
+   * 如果不是微信手机App, 则不支持
+   * 如果是微信小程序webview 则不支持
+   */
+  if (!isWxMApp || isWxMpWebView) {
+    return Promise.resolve(false)
+  }
+  return Promise.resolve(true)
+}
+
+// 跳转小程序原生页面
+export const navigateTo = wxBridge((params) => wx.miniProgram.navigateTo(params))
