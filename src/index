@@ -20,42 +20,42 @@ export const isWxMApp = () => {
   return ua.match(/MicroMessenger/i) && !ua.includes('wxwork')
 }
 
-// wxBride 工厂方法
-export const wxBridge = cb => data => {
-  const onBridgeReady = () => {
-    return cb(data)
+// 微信 onBridgeReady 事件
+export const onBridgeReady = (cb) => {
+  if (typeof cb !== 'function') {
+    throw new Error('onBridgeReady 必须传入回调方法')
   }
-  if (typeof window.WeixinJSBridge === 'undefined') {
+  if (typeof window.WeixinJSBridge === 'undefined' || !window.WeixinJSBridge.invoke) {
     if (document.addEventListener) {
-      document.addEventListener('WeixinJSBridgeReady', onBridgeReady, false)
+      document.addEventListener('WeixinJSBridgeReady', cb, false)
     } else if (document.attachEvent) {
-      document.attachEvent('WeixinJSBridgeReady', onBridgeReady)
-      document.attachEvent('onWeixinJSBridgeReady', onBridgeReady)
+      document.attachEvent('WeixinJSBridgeReady', cb)
+      document.attachEvent('onWeixinJSBridgeReady', cb)
     }
   } else {
-    onBridgeReady()
+    cb()
   }
 }
+
+// wxBride 工厂方法
+export const wxBridge = cb => data => onBridgeReady(() => cb(data))
 
 // 判断是否为微信小程序 webview
 export const isWxMpWebView = () => {
   if (!isWxMApp) return Promise.resolve(false)
-  // 不是微信app 或者 不是小程序webview（ >7.0.0）， 不支持wx jssdk
-  if (
-    !isWxMApp() || !getUserAgent().match(/miniProgram/i)
-  ) {
+  // 不是微信app 不支持wx jssdk
+  if (!isWxMApp()) {
     return Promise.resolve(false)
   }
+  // 小程序webview（ >7.0.0）
+  if (getUserAgent().match(/miniProgram/i)) {
+    return Promise.resolve(true)
+  }
+
   return new Promise((resolve, reject) => {
     // 判断 微信小程序
     const isMP = () => window.__wxjs_environment === 'miniprogram'
-    if (!window.WeixinJSBridge || !window.WeixinJSBridge.invoke) {
-      document.addEventListener('WeixinJSBridgeReady', () => {
-        resolve(!isMP())
-      }, false)
-    } else {
-      resolve(!isMP())
-    }
+    onBridgeReady(() => resolve(!isMP()))
   })
 }
 // 判断是否支持 微信支付 (小程序)
